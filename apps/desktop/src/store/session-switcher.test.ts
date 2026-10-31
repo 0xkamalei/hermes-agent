@@ -68,48 +68,64 @@ describe('openOrAdvanceSwitcher', () => {
     expect($switcherOpen.get()).toBe(false)
   })
 
-  it('opens the HUD when Tab stays held past the reveal delay', () => {
+  // LOCAL PATCH (030): the overlay is disabled — holding Tab past the reveal
+  // delay must stay invisible. Every press is a direct neighbour jump.
+  it('never opens the HUD when Tab stays held past the reveal delay', () => {
     vi.useFakeTimers()
     seed(['a', 'b', 'c'], 'a')
 
     onSwitcherTabDown()
-    openOrAdvanceSwitcher(1)
+    expect(openOrAdvanceSwitcher(1)).toBe('b')
     vi.advanceTimersByTime(SWITCHER_REVEAL_MS)
 
-    expect($switcherOpen.get()).toBe(true)
+    expect($switcherOpen.get()).toBe(false)
     onSwitcherTabUp()
   })
 
-  it('opens on a second Tab while Ctrl is still down', () => {
+  // LOCAL PATCH (030): a second press used to reveal the HUD. Upstream relied
+  // on a real Ctrl keyup to clear `pendingBrowse`; without it the overlay
+  // popped on every other press. Now each press just advances one session.
+  it('keeps jumping on repeated presses instead of opening the HUD', () => {
     seed(['a', 'b', 'c'], 'a')
 
-    expect(tabTap()).toBe('b')
-    onSwitcherTabDown()
-    openOrAdvanceSwitcher(1)
-    onSwitcherTabUp()
+    // Mirrors the real call chain: `goToSession` lands the target, so the
+    // next step advances from there and wraps past the end.
+    const jump = () => {
+      const target = tabTap()
 
-    expect($switcherOpen.get()).toBe(true)
-    expect($switcherIndex.get()).toBe(2)
+      if (target) {
+        $selectedStoredSessionId.set(target)
+      }
+
+      return target
+    }
+
+    expect(jump()).toBe('b')
+    expect(jump()).toBe('c')
+    expect(jump()).toBe('a')
+
+    expect($switcherOpen.get()).toBe(false)
   })
 
-  it('commits the HUD highlight on Ctrl up', () => {
+  // LOCAL PATCH (030): with no overlay there is no highlight to commit.
+  it('has nothing to commit on Ctrl up', () => {
     seed(['a', 'b', 'c'], 'a')
 
     expect(tabTap()).toBe('b')
-    onSwitcherTabDown()
-    openOrAdvanceSwitcher(1)
-    onSwitcherTabUp()
-
-    expect(commitOnCtrlUp()).toBe('c')
+    expect(commitOnCtrlUp()).toBeNull()
+    expect($switcherOpen.get()).toBe(false)
   })
 })
 
 describe('slotSessionId', () => {
-  it('reads the armed snapshot while browsing is pending', () => {
+  // LOCAL PATCH (030): navigating no longer arms a stale snapshot, so slots
+  // always resolve against the live session list.
+  it('reads the live session list instead of an armed snapshot', () => {
     seed(['a', 'b', 'c'], 'a')
     tabTap()
-    $sessions.set([session('x')])
+    $sessions.set([session('x'), session('y')])
 
-    expect(slotSessionId(2)).toBe('b')
+    expect(slotSessionId(1)).toBe('x')
+    expect(slotSessionId(2)).toBe('y')
   })
 })

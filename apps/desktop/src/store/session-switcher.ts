@@ -10,6 +10,22 @@ import { $selectedStoredSessionId, $sessions } from './session'
 
 export const SWITCHER_REVEAL_MS = 220
 
+// ── LOCAL PATCH (hermes-patch 030) ──────────────────────────────────────────
+// Upstream reveals the HUD on a second ^Tab tap or after SWITCHER_REVEAL_MS.
+// That assumes a real Ctrl keyup clears `pendingBrowse`; a remote/hotkey that
+// never reports `event.key === 'Control'` leaves it dirty forever, so EVERY
+// second press popped the overlay. This build always does the direct
+// neighbour jump.
+//
+// The key is resolved through `globalThis` at load, not written as a literal
+// `false`: that keeps the string in the bundle (hermes-patch verifies it) and
+// makes the flag overridable —
+// `globalThis['hermes.desktop.sessionSwitcher.hudDisabled'] = true` + reload
+// restores the upstream overlay without a rebuild.
+export const SESSION_SWITCHER_HUD_KEY = 'hermes.desktop.sessionSwitcher.hudDisabled'
+const SWITCHER_HUD_ENABLED = Boolean((globalThis as Record<string, unknown>)[SESSION_SWITCHER_HUD_KEY])
+// ── end local patch ────────────────────────────────────────────────────────
+
 export const $switcherOpen = atom(false)
 export const $switcherSessions = atom<SessionInfo[]>([])
 export const $switcherIndex = atom(0)
@@ -78,6 +94,15 @@ export function openOrAdvanceSwitcher(direction: 1 | -1): string | null {
 
   if (sessions.length < 2) {
     return null
+  }
+
+  // LOCAL PATCH (030): overlay disabled — always jump straight to the
+  // neighbour, instead of revealing the HUD on the second press.
+  if (!SWITCHER_HUD_ENABLED) {
+    const active = sessions.findIndex(session => session.id === $selectedStoredSessionId.get())
+    const from = active === -1 ? (direction === 1 ? -1 : 0) : active
+
+    return sessions[wrap(from + direction, sessions.length)]?.id ?? null
   }
 
   if ($switcherOpen.get()) {
