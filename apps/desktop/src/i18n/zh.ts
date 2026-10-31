@@ -2806,6 +2806,7 @@ export const zhOverrides = {
       switchDeviceTitle: '切换到此设备？',
       switchDeviceDesc: '这会在这台电脑上打开一个新会话。当前对话仍留在另一个网关上。',
       switchDeviceConfirm: '切换',
+      switchDeviceDontRemind: '切换，不再提醒',
       installDeviceTitle: '切换到此设备？',
       installDeviceDesc: '这将在本地安装 Hermes，然后在这台电脑上打开一个新会话。确认之前不会开始安装。',
       installDeviceConfirm: '本地安装',

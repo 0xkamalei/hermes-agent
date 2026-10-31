@@ -2530,6 +2530,8 @@ export interface Translations extends NoticeTranslations {
       switchDeviceTitle: string
       switchDeviceDesc: string
       switchDeviceConfirm: string
+      /** Opt-out on the switch prompt: accept now and never ask again. */
+      switchDeviceDontRemind: string
       installDeviceTitle: string
       installDeviceDesc: string
       installDeviceConfirm: string

@@ -2888,6 +2888,7 @@ export const en: Translations = {
       switchDeviceDesc:
         'This opens a fresh session on this computer. The conversation you are in stays on the other gateway.',
       switchDeviceConfirm: 'Switch',
+      switchDeviceDontRemind: "Switch and don't ask again",
       installDeviceTitle: 'Switch to This device?',
       installDeviceDesc:
         'This will install Hermes locally, then open a fresh session on this computer. Nothing is installed until you confirm.',

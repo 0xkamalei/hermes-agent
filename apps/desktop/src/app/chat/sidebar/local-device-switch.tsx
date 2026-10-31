@@ -6,6 +6,8 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 
+import { $skipLocalSwitchConfirm } from './local-device-switch-prefs'
+
 /**
  * Resolve whether This device would install, without starting the installer.
  * Missing bridge fails closed: a click must not reach runBootstrap unseen.
@@ -47,9 +49,16 @@ export function useLocalDeviceSwitch() {
 
   const settle = (accepted: boolean) => {
     const resolve = waiter.current
+
+    // Already settled — "Don't ask again" settles inside its own onClick and
+    // the dialog closes right after, which lands here a second time.
+    if (!resolve) {
+      return
+    }
+
     waiter.current = null
     setPrompt(null)
-    resolve?.(accepted)
+    resolve(accepted)
   }
 
   const request = async (target: LocalDeviceTarget): Promise<boolean> => {
@@ -74,6 +83,12 @@ export function useLocalDeviceSwitch() {
     const freshSession = target.replaceCenter === true || target.profile == null || target.profile === 'default'
 
     if (!bootstrapNeeded && !freshSession) {
+      return true
+    }
+
+    // "Don't ask again" only silences the fresh-session warning. An install
+    // still confirms: an opt-out from a warning must never run the installer.
+    if (!bootstrapNeeded && $skipLocalSwitchConfirm.get()) {
       return true
     }
 
@@ -106,6 +121,17 @@ export function useLocalDeviceSwitch() {
                   }
                 }
               : undefined
+          }
+          skipAction={
+            install
+              ? undefined
+              : {
+                  label: fleet.switchDeviceDontRemind,
+                  onClick: () => {
+                    $skipLocalSwitchConfirm.set(true)
+                    settle(true)
+                  }
+                }
           }
           title={install ? fleet.installDeviceTitle : fleet.switchDeviceTitle}
         />

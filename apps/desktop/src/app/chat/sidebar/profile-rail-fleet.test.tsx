@@ -53,6 +53,7 @@ vi.mock('@/i18n', () => ({
           localDevice: 'This device (local backend — installs Hermes if missing, otherwise opens a fresh session)',
           onGateway: (name: string, gateway: string) => `${name} · ${gateway}`,
           switchDeviceConfirm: 'Switch',
+          switchDeviceDontRemind: "Switch and don't ask again",
           switchDeviceDesc:
             'This opens a fresh session on this computer. The conversation you are in stays on the other gateway.',
           switchDeviceTitle: 'Switch to This device?',
@@ -153,6 +154,7 @@ const activeGatewayProfile = $activeGatewayProfile as ReturnType<typeof atom<str
 const profiles = $profiles as ReturnType<typeof atom<Array<{ is_default: boolean; name: string }>>>
 const profileScope = $profileScope as ReturnType<typeof atom<string>>
 const { _resetFleetRosterForTests } = await import('@/store/fleet-roster')
+const { $skipLocalSwitchConfirm } = await import('./local-device-switch-prefs')
 
 const registry: DesktopConnectionsRegistry = {
   connections: [
@@ -248,6 +250,7 @@ afterEach(() => {
   activeGatewayProfile.set('default')
   profileScope.set('default')
   profiles.set([{ is_default: true, name: 'default' }])
+  $skipLocalSwitchConfirm.set(false)
   delete (window as { hermesDesktop?: unknown }).hermesDesktop
 })
 
@@ -597,6 +600,57 @@ describe('ProfileRail fleet mode', () => {
       await Promise.resolve()
     })
 
+    expect(selectConnection).not.toHaveBeenCalled()
+  })
+
+  it('remembers the fresh-session opt-out and stops asking', async () => {
+    armFleet()
+    await renderFleet()
+
+    const deviceButton = () =>
+      screen.getByRole('button', {
+        name: 'This device (local backend — installs Hermes if missing, otherwise opens a fresh session)'
+      })
+
+    fireEvent.click(deviceButton())
+    fireEvent.click(await screen.findByRole('button', { name: "Switch and don't ask again" }))
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    // The opt-out is not a cancel: it performs the switch the click asked for.
+    expect(selectConnection).toHaveBeenCalledWith('local', { profile: 'default' })
+    expect($skipLocalSwitchConfirm.get()).toBe(true)
+
+    selectConnection.mockClear()
+    fireEvent.click(deviceButton())
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByRole('dialog', { name: 'Switch to This device?' })).toBeNull()
+    expect(selectConnection).toHaveBeenCalledWith('local', { profile: 'default' })
+  })
+
+  it('keeps asking before an install even when the switch opt-out is set', async () => {
+    armFleet()
+    $skipLocalSwitchConfirm.set(true)
+    probeLocalBackend.mockResolvedValue({ bootstrapNeeded: true })
+    await renderFleet()
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'This device (local backend — installs Hermes if missing, otherwise opens a fresh session)'
+      })
+    )
+
+    expect(
+      await screen.findByText(
+        'This will install Hermes locally, then open a fresh session on this computer. Nothing is installed until you confirm.'
+      )
+    ).toBeTruthy()
     expect(selectConnection).not.toHaveBeenCalled()
   })
 

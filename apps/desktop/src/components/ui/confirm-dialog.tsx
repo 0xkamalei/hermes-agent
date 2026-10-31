@@ -32,6 +32,11 @@ interface ConfirmDialogProps {
   /** A third, non-destructive way out, shown between Cancel and Confirm (e.g.
    *  "Remove from sidebar" beside "Delete worktree"). Closes on click. */
   secondaryAction?: ConfirmSecondaryAction
+  /** A third option between Cancel and Confirm that closes the dialog after
+   *  running onClick — for "accept this AND stop asking" (e.g. "Don't ask
+   *  again"). Unlike secondaryAction the caller may already have settled the
+   *  action inside onClick; a follow-up close then resolves nothing. */
+  skipAction?: ConfirmSecondaryAction
 }
 
 interface ConfirmSecondaryAction {
@@ -56,7 +61,8 @@ export function ConfirmDialog({
   cancelLabel,
   destructive = false,
   dismissOnConfirm = false,
-  secondaryAction
+  secondaryAction,
+  skipAction
 }: ConfirmDialogProps) {
   const { t } = useI18n()
   const confirmRef = useRef<HTMLButtonElement>(null)
@@ -167,6 +173,19 @@ export function ConfirmDialog({
           <Button disabled={busy} onClick={onClose} type="button" variant="ghost">
             {resolvedCancelLabel}
           </Button>
+          {skipAction && (
+            <Button
+              disabled={busy}
+              onClick={() => {
+                skipAction.onClick()
+                onClose()
+              }}
+              type="button"
+              variant="ghost"
+            >
+              {skipAction.label}
+            </Button>
+          )}
           {secondaryAction && (
             <Button
               disabled={busy}
